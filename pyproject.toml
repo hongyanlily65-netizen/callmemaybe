@@ -1,0 +1,11 @@
+[project]
+name = "call-me-maybe"
+version = "0.1.0"
+description = "Function-calling prompt processor using a local LLM SDK."
+requires-python = ">=3.10"
+dependencies = [
+    "llm-sdk",
+]
+
+[tool.uv.sources]
+llm-sdk = { path = "llm_sdk", editable = true }
