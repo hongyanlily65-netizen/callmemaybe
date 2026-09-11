@@ -5,6 +5,13 @@ description = "Function-calling prompt processor using a local LLM SDK."
 requires-python = ">=3.10"
 dependencies = [
     "llm-sdk",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "flake8",
+    "mypy",
 ]
 
 [tool.uv.sources]

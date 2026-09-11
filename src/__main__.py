@@ -1,30 +1,37 @@
 import json
 from pathlib import Path
+import sys
 
-
-BASE_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = BASE_DIR.parent
-
-from .model.PromptProcessor import PromptProcessor
-
-FUNCTION_CALLING_TESTS_PATH = PROJECT_DIR / "input" / "function_calling_tests.json"
-FUNCTION_DEFINITIONS_PATH = PROJECT_DIR / "input" / "functions_definition.json"
-
-
-def load_json(path: Path):
-    with path.open("r", encoding="utf-8") as file:
-        return json.load(file)
+from .parsing.arguments import get_arguments
 
 
 def main() -> None:
-    function_calling_tests = load_json(FUNCTION_CALLING_TESTS_PATH)
-    function_definitions = load_json(FUNCTION_DEFINITIONS_PATH)
+    args = get_arguments()
 
-    prompts = [item["prompt"] for item in function_calling_tests]
-    processor = PromptProcessor(prompts, function_definitions)
-    output = processor.process(function_calling_tests)
+    from .model.PromptProcessor import PromptProcessor
+    from .parsing.function_definitions import get_function_definitions
+    from .parsing.prompts import get_prompts
 
-    print(json.dumps(output, indent=2, ensure_ascii=False))
+    input_path = Path(args.input)
+    definitions_path = Path(args.function_definitions)
+    output_path = Path(args.output)
+
+    try:
+        prompts = get_prompts(input_path)
+        function_definitions = get_function_definitions(definitions_path)
+        processor = PromptProcessor(
+            prompts=prompts,
+            function_definitions=function_definitions,
+        )
+        output = processor.process()
+
+        output_json = json.dumps(output, indent=2, ensure_ascii=False)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(output_json + "\n", encoding="utf-8")
+        print(output_json)
+    except (OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":
