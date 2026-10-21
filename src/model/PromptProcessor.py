@@ -3,13 +3,14 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 from .LLMProtocol import LLMProtocol
+from ..parsing.function_definitions import FunctionDefinition
 
 
 class PromptProcessor(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     prompts: list[str]
-    function_definitions: list[dict[str, Any]]
+    function_definitions: list[FunctionDefinition]
 
     _llm: LLMProtocol = PrivateAttr()
 
@@ -39,11 +40,11 @@ class PromptProcessor(BaseModel):
             f"Functions={self.function_definitions}: "
             "Select function name. "
             f"To solve the following problem: {prompt}. "
-            'function="'
+            'function='
         )
         generated_name_tokens: list[int] = []
         possible_output_tokens = [
-            self._llm.encode(fd["name"]).tolist()[0]
+            self._llm.encode(fd.name).tolist()[0]
             for fd in self.function_definitions
         ]
         max_name_token_length = max(len(tokens) for tokens in possible_output_tokens)
@@ -59,51 +60,55 @@ class PromptProcessor(BaseModel):
             generated_name_tokens.append(next_token_id)
             prompt_message += self._llm.decode([next_token_id])
 
+            matched_function = None
+            has_longer_candidate = False
             for fd, tokens in zip(self.function_definitions, possible_output_tokens):
                 if tokens == generated_name_tokens:
-                    return fd["name"]
+                    matched_function = fd.name
+                elif tokens[:len(generated_name_tokens)] == generated_name_tokens:
+                    has_longer_candidate = True
 
-        return self._llm.decode(generated_name_tokens).strip('"')
+            if matched_function is not None and not has_longer_candidate:
+                return matched_function
+
+        generated_name = self._llm.decode(generated_name_tokens).strip('"')
+        raise ValueError(
+            "Unable to match generated function name to function definitions: "
+            f"{generated_name!r}"
+        )
 
     def get_parameters(self, function_name: str, prompt: str) -> dict:
         params = {}
         for fd in self.function_definitions:
-            if fd["name"] == function_name:
-                params = fd.get("parameters", {})
+            if fd.name == function_name:
+                params = fd.parameters
                 break
 
         params_format: str = " ".join(
             f'{key}="<value>"' for key in params.keys()
         )
-        rule_context = (
-            f'The function you should call is "{function_name}".\n'
-            "Read the parameter description below and provide only the arguments needed for this function.\n"
-            "Use the exact parameter names from the description. Do not include angle brackets, labels, "
-            "explanations, or extra text.\n"
-            "Parameter description:\n"
-            f"{params_format}"
+        prompt_message = (
+            f"Input= {prompt}\n"
+            f'The function you should call is "{function_name}" and the parameter '
+            f"description is {params_format}, the parameters should be:"
         )
-        token_context: list[int] = self._llm.encode(rule_context).tolist()[0]
-
-        token_prompt: list[int] = self._llm.encode(
-            f'Input= {prompt} \nFunction= "{function_name}"\n'
-        ).tolist()[0]
+        prompt_tokens: list[int] = self._llm.encode(prompt_message).tolist()[0]
         result: dict[str, str] = {}
 
         for key in params.keys():
-            param_type = params[key].get("type")
+            param_type = params[key]["type"]
             param_mask = self.get_param_mask(param_type)
             param_buffer = ""
-            token_prompt += self._llm.encode(f'{key}="').tolist()[0]
+            prompt_tokens += self._llm.encode(f'{key}="').tolist()[0]
 
             while '"' not in param_buffer and len(param_buffer) < 64:
-                logits = self._llm.get_logits_from_input_ids(token_context + token_prompt)
+                logits = self._llm.get_logits_from_input_ids(prompt_tokens)
                 next_token_id = get_constrained_token_id(logits, param_mask, self._llm)
                 param_buffer += self._llm.decode([next_token_id])
-                token_prompt += [next_token_id]
+                prompt_tokens += [next_token_id]
 
             result[key] = param_buffer.strip('"')
-            token_prompt += self._llm.encode("\n").tolist()[0]
+            prompt_tokens += self._llm.encode("\n").tolist()[0]
 
         return result
 

@@ -1,12 +1,9 @@
-from typing import Any, cast
+from typing import Any
 
 import torch
 from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 from llm_sdk import Small_LLM_Model
-
-from .LLMProtocol import LLMProtocol
-
 
 class LLMModel(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -16,17 +13,14 @@ class LLMModel(BaseModel):
     dtype: torch.dtype | None = None
     trust_remote_code: bool = True
 
-    _model: LLMProtocol = PrivateAttr()
+    _model: Small_LLM_Model = PrivateAttr()
 
     def model_post_init(self, __context: Any) -> None:
-        self._model = cast(
-            LLMProtocol,
-            Small_LLM_Model(
-                model_name=self.model_name,
-                device=self.device,
-                dtype=self.dtype,
-                trust_remote_code=self.trust_remote_code,
-            ),
+        self._model = Small_LLM_Model(
+            model_name=self.model_name,
+            device=self.device,
+            dtype=self.dtype,
+            trust_remote_code=self.trust_remote_code,
         )
 
     def encode(self, text: str) -> torch.Tensor:

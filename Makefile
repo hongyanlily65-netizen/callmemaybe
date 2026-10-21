@@ -1,11 +1,11 @@
-HF_HOME ?= /home/hohu/sgoinfre/call_me_maybe/.llm
-UV_CACHE_DIR ?= /home/hohu/sgoinfre/call_me_maybe/.uv_cache
+HF_HOME = /home/hohu/sgoinfre/call_me_maybe/.llm
+UV_CACHE_DIR = /home/hohu/sgoinfre/call_me_maybe/.uv_cache
 
 export HF_HOME
 export UV_CACHE_DIR
 
-PYTHON ?= .venv/bin/python
-UV ?= uv
+PYTHON = .venv/bin/python
+UV = uv
 
 .PHONY: install run debug clean lint lint-strict
 
@@ -15,7 +15,7 @@ install:
 
 run:
 	mkdir -p "$(HF_HOME)"
-	$(PYTHON) -m src
+	$(UV) run python -m src
 
 debug:
 	mkdir -p "$(HF_HOME)"

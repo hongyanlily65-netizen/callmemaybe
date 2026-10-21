@@ -1,26 +1,17 @@
 import argparse
 
-from pydantic import BaseModel, ValidationError, field_validator
-
-from .json_files import format_validation_error
+from pydantic import BaseModel
 
 
-DEFAULT_INPUT_PATH = "input/function_calling_tests.json"
-DEFAULT_OUTPUT_PATH = "output/function_calling_results.json"
-DEFAULT_FUNCTION_DEFINITIONS_PATH = "input/functions_definition.json"
+DEFAULT_INPUT_PATH = "data/input/function_calling_tests.json"
+DEFAULT_OUTPUT_PATH = "data/output/function_calling_results.json"
+DEFAULT_FUNCTION_DEFINITIONS_PATH = "data/input/functions_definition.json"
 
 
 class Arguments(BaseModel):
     input: str
     output: str
     function_definitions: str
-
-    @field_validator("input", "output", "function_definitions")
-    @classmethod
-    def validate_path(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("path cannot be empty")
-        return value
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -57,11 +48,8 @@ def get_arguments() -> Arguments:
     )
     add_arguments(parser)
     args = parser.parse_args()
-    try:
-        return Arguments(
-            input=args.input,
-            output=args.output,
-            function_definitions=args.function_definitions,
-        )
-    except ValidationError as exc:
-        parser.error(format_validation_error(exc))
+    return Arguments(
+        input=args.input,
+        output=args.output,
+        function_definitions=args.function_definitions,
+    )
