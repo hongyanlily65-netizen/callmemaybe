@@ -1,6 +1,9 @@
 import unittest
 
-from src.model.PromptProcessor import ParameterJsonState, PromptProcessor
+from src.model.PromptProcessor import (
+    PromptProcessor,
+    parameter_value_matches_type,
+)
 from src.parsing.function_definitions import FunctionDefinition
 
 
@@ -24,25 +27,24 @@ class FakeLlm:
         self.id_to_char = {
             index: character for character, index in self.char_to_id.items()
         }
-        self.prompt_length: int | None = None
+        self.output_index = 0
 
     def encode(self, text: str) -> TokenIds:
         ids = [
             self.char_to_id.get(character, 0)
             for character in text
         ]
-        self.prompt_length = len(ids)
         return TokenIds(ids)
 
     def decode(self, ids: list[int]) -> str:
         return "".join(self.id_to_char[token_id] for token_id in ids)
 
     def get_logits_from_input_ids(self, input_ids: list[int]) -> list[float]:
-        assert self.prompt_length is not None
-        output_index = len(input_ids) - self.prompt_length
         logits = [0.0] * len(self.characters)
-        if output_index < len(self.output):
-            logits[self.char_to_id[self.output[output_index]]] = 10.0
+        if self.output_index < len(self.output):
+            character = self.output[self.output_index]
+            logits[self.char_to_id[character]] = 10.0
+        self.output_index += 1
         return logits
 
 
@@ -77,10 +79,7 @@ class PromptProcessorTests(unittest.TestCase):
             returns={"type": "string"},
             full_definition="",
         )
-        output = (
-            '{"source_string":"Hello 34","regex":"[0-9]+",'
-            '"replacement":"NUMBERS"}'
-        )
+        output = 'Hello 34"[0-9]+"NUMBERS"'
 
         result = processor_with(function, output).get_parameters(
             function.name,
@@ -96,10 +95,8 @@ class PromptProcessorTests(unittest.TestCase):
             },
         )
 
-    def test_state_rejects_an_empty_string_value(self) -> None:
-        state = ParameterJsonState(["name"], ["string"])
-
-        self.assertIsNone(state.try_append('{"name":""}'))
+    def test_string_values_must_not_be_empty(self) -> None:
+        self.assertFalse(parameter_value_matches_type("", "string"))
 
 
 if __name__ == "__main__":
