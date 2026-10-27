@@ -1,21 +1,20 @@
-*Este proyecto ha sido creado como parte del currículo de 42 por hohu.*
+*This project was created as part of the 42 curriculum by hohu.*
 
 # Call Me Maybe
 
-## Descripción
+## Description
 
-Call Me Maybe es una herramienta local de *function calling* para modelos de
-lenguaje. Recibe peticiones en lenguaje natural y una lista de funciones
-disponibles, selecciona la función más probable y genera los valores de sus
-parámetros.
+Call Me Maybe is a local *function calling* tool for language models. It
+receives natural-language requests and a list of available functions, selects
+the most likely function, and generates values for its parameters.
 
-El objetivo del proyecto es construir una salida estructurada sin depender de
-la generación libre de texto. Para ello utiliza el modelo local
-`Qwen/Qwen3-0.6B`, proporcionado mediante el paquete `llm_sdk`, y restringe
-los tokens que pueden elegirse durante la generación.
+The goal of the project is to produce structured output without relying on
+free-form text generation. It uses the local `Qwen/Qwen3-0.6B` model, provided
+by the `llm_sdk` package, and restricts the tokens that can be selected during
+generation.
 
-La salida actual es un array JSON. Cada elemento incluye el prompt original,
-el nombre de la función elegida y los parámetros generados:
+The current output is a JSON array. Each item includes the original prompt,
+the selected function name, and the generated parameters:
 
 ```json
 {
@@ -28,43 +27,42 @@ el nombre de la función elegida y los parámetros generados:
 }
 ```
 
-## Instrucciones
+## Instructions
 
-### Requisitos
+### Requirements
 
-- Python 3.10 o superior.
+- Python 3.10 or later.
 - [uv](https://docs.astral.sh/uv/).
-- Acceso a Internet la primera vez que se descargan las dependencias y el
-  modelo de Hugging Face.
+- Internet access the first time dependencies and the Hugging Face model are
+  downloaded.
 
-### Instalación
+### Installation
 
-El proyecto usa `uv` y contiene un `Makefile`. El objetivo `install` crea los
-directorios de caché para paquetes y modelos, e instala las dependencias de
-ejecución y desarrollo:
+The project uses `uv` and includes a `Makefile`. The `install` target creates
+cache directories for packages and models, then installs runtime and
+development dependencies:
 
 ```bash
 make install
 ```
 
-Por defecto, las cachés se configuran en el `Makefile` mediante estas
-variables:
+By default, the caches are configured in the `Makefile` with these variables:
 
 ```makefile
 HF_HOME = /home/hohu/sgoinfre/call_me_maybe/.llm
 UV_CACHE_DIR = /home/hohu/sgoinfre/call_me_maybe/.uv_cache
 ```
 
-Se pueden sustituir en la línea de comandos:
+They can be overridden on the command line:
 
 ```bash
 make install HF_HOME=/ruta/a/modelos UV_CACHE_DIR=/ruta/a/uv-cache
 ```
 
-### Ejecución
+### Running the project
 
-La forma más directa de ejecutar el programa con los ficheros incluidos en
-este repositorio es:
+The most direct way to run the program with the files included in this
+repository is:
 
 ```bash
 uv run python -m src \
@@ -73,19 +71,18 @@ uv run python -m src \
   --output output/function_calling_results.json
 ```
 
-El modelo se descarga o carga durante la creación de `LLMModel`; la primera
-ejecución puede tardar más que las siguientes debido a esa descarga y a la
-caché local.
+The model is downloaded or loaded while creating `LLMModel`. The first run may
+take longer than later runs because of this download and the local cache.
 
-Los argumentos disponibles son:
+The available arguments are:
 
 ```text
---input <archivo>                 Archivo JSON con los prompts.
---function_definitions <archivo>  Archivo JSON con las funciones disponibles.
---output <archivo>                Ruta del JSON de salida.
+--input <file>                    JSON file containing the prompts.
+--function_definitions <file>     JSON file containing the available functions.
+--output <file>                   Path to the output JSON file.
 ```
 
-También hay objetivos del `Makefile`:
+The `Makefile` also provides these targets:
 
 ```bash
 make run
@@ -95,17 +92,17 @@ make lint
 make lint-strict
 ```
 
-`make debug` inicia el programa con el depurador estándar `pdb`. `make clean`
-elimina cachés de Python, mypy y pytest.
+`make debug` starts the program with the standard `pdb` debugger. `make clean`
+removes Python, mypy, and pytest caches.
 
-> Nota: `make run` usa las rutas predeterminadas configuradas en
-> `src/parsing/arguments.py` (`data/input/...`). En esta copia del repositorio
-> los ejemplos están en `input/...`; por ello, usa el comando con rutas
-> explícitas mostrado arriba, o crea la estructura `data/input/` esperada.
+> Note: `make run` uses the default paths configured in
+> `src/parsing/arguments.py` (`data/input/...`). In this copy of the
+> repository, the examples are in `input/...`; therefore, use the command with
+> explicit paths shown above, or create the expected `data/input/` structure.
 
-## Formato de entrada
+## Input format
 
-El archivo de prompts debe ser un array JSON de objetos con la clave `prompt`:
+The prompts file must be a JSON array of objects with a `prompt` key:
 
 ```json
 [
@@ -114,8 +111,8 @@ El archivo de prompts debe ser un array JSON de objetos con la clave `prompt`:
 ]
 ```
 
-El archivo de definiciones debe ser un array JSON. Cada función contiene un
-nombre, una descripción, sus parámetros y el tipo de retorno:
+The definitions file must be a JSON array. Each function includes a name,
+description, parameters, and return type:
 
 ```json
 [
@@ -130,95 +127,91 @@ nombre, una descripción, sus parámetros y el tipo de retorno:
 ]
 ```
 
-La capa de parsing usa modelos Pydantic para comprobar la estructura. Además,
-un `model_validator` verifica que cada parámetro declarado contiene un campo
-`type`. Los errores de archivo inexistente, permisos insuficientes, JSON no
-válido, listas vacías o estructuras incorrectas se convierten en errores
-explicativos.
+The parsing layer uses Pydantic models to validate the structure. In addition,
+a `model_validator` verifies that every declared parameter includes a `type`
+field. Missing files, insufficient permissions, invalid JSON, empty lists,
+and incorrect structures are converted into explanatory errors.
 
-## Algoritmo de decodificación restringida
+## Constrained decoding algorithm
 
-La generación se divide en dos fases.
+Generation is divided into two phases.
 
-1. Selección de función: el programa tokeniza cada nombre de función válido.
-   En cada paso consulta los logits del LLM y solo permite el siguiente token
-   que continúe al menos uno de los nombres disponibles. Cuando el prefijo
-   generado coincide con un nombre completo y no existe una función más larga
-   con el mismo prefijo, la función queda seleccionada.
-2. Generación de parámetros: para cada parámetro de la función elegida se crea
-   un prompt con los nombres de los parámetros. En cada paso se ordenan los
-   logits y se acepta el token de mayor puntuación cuyo texto esté permitido
-   por una máscara dependiente del tipo. Las cadenas permiten letras, números,
-   espacios, guion bajo y comillas; los números permiten dígitos, signo menos,
-   punto y comillas. La generación se detiene al producir una comilla o al
-   alcanzar el límite de 64 caracteres.
+1. Function selection: the program tokenizes every valid function name. At
+   each step, it checks the LLM logits and allows only the next token that
+   continues at least one available name. When the generated prefix matches a
+   complete name and no longer function has the same prefix, the function is
+   selected.
+2. Parameter generation: for each parameter of the selected function, a
+   prompt containing the parameter names is created. At each step, the logits
+   are sorted and the highest-scoring token whose text is allowed by a
+   type-dependent mask is accepted. Strings allow letters, numbers, spaces,
+   underscores, and quotation marks; numbers allow digits, a minus sign, a
+   decimal point, and quotation marks. Generation stops when a quotation mark
+   is produced or when the 64-character limit is reached.
 
-Esta restricción reduce el espacio de búsqueda del modelo: no puede inventar
-un nombre de función fuera de las definiciones y los valores de parámetros se
-mantienen dentro de un conjunto de caracteres compatible con su tipo básico.
+This constraint reduces the model's search space: it cannot invent a function
+name outside the definitions, and parameter values remain within a character
+set compatible with their basic type.
 
-## Decisiones de diseño
+## Design decisions
 
-- `LLMProtocol` describe la interfaz mínima que necesita el procesador:
-  `encode`, `decode` y `get_logits_from_input_ids`. Así el procesador no queda
-  acoplado directamente a un SDK concreto.
-- `LLMModel` encapsula `Small_LLM_Model`. Sus campos Pydantic representan la
-  configuración del modelo y su atributo privado `_model` guarda la instancia
-  real del SDK tras la inicialización.
-- `PromptProcessor` crea internamente su LLM y trabaja con objetos
-  `FunctionDefinition`, no con diccionarios sin tipo.
-- Cada módulo de parsing abre y valida su propio archivo. Esto mantiene juntos
-  el formato esperado y sus mensajes de error, sin una capa auxiliar genérica.
-- `argparse` se utiliza para exponer las rutas de entrada y salida desde la
-  línea de comandos.
+- `LLMProtocol` describes the minimum interface required by the processor:
+  `encode`, `decode`, and `get_logits_from_input_ids`. This prevents the
+  processor from being directly coupled to a specific SDK.
+- `LLMModel` encapsulates `Small_LLM_Model`. Its Pydantic fields represent the
+  model configuration, and its private `_model` attribute stores the actual
+  SDK instance after initialization.
+- `PromptProcessor` creates its own LLM internally and works with
+  `FunctionDefinition` objects instead of untyped dictionaries.
+- Each parsing module opens and validates its own file. This keeps the expected
+  format and its error messages together, without a generic helper layer.
+- `argparse` exposes the input and output paths through the command line.
 
-## Análisis de rendimiento
+## Performance analysis
 
-El coste principal es una inferencia del LLM por cada token generado. Por ello,
-la carga inicial del modelo y la longitud de los prompts influyen directamente
-en el tiempo total. La caché de Hugging Face evita volver a descargar el modelo
-en ejecuciones posteriores.
+The main cost is one LLM inference for every generated token. Consequently,
+initial model loading and prompt length directly affect total runtime. The
+Hugging Face cache prevents the model from being downloaded again on later
+runs.
 
-La selección de función es más fiable que una generación abierta porque cada
-token debe pertenecer a un prefijo de nombre válido. Para parámetros, las
-máscaras de caracteres disminuyen resultados con texto libre, aunque no
-constituyen por sí solas una validación semántica completa: un valor puede
-respetar los caracteres permitidos y aun así no responder correctamente a la
-petición. La precisión y el tiempo exactos deben medirse con un conjunto de
-pruebas representativo del entorno de ejecución.
+Function selection is more reliable than open generation because every token
+must belong to a valid name prefix. For parameters, character masks reduce
+free-text results, although they do not by themselves provide complete
+semantic validation: a value may follow the allowed characters and still fail
+to answer the request correctly. Exact accuracy and execution time should be
+measured with a test set representative of the execution environment.
 
-## Retos encontrados
+## Challenges encountered
 
-- Integrar un LLM local sin filtrar sus detalles por todo el proyecto. Se
-  resolvió con el adaptador `LLMModel` y el protocolo `LLMProtocol`.
-- Asegurar que el nombre generado pertenece al conjunto de funciones. Se
-  resolvió comparando el prefijo tokenizado generado con todos los nombres
-  permitidos en cada iteración.
-- Gestionar entradas mal formadas. Se añadieron modelos Pydantic y excepciones
-  específicas para ficheros ausentes, permisos, JSON inválido y estructuras
-  incompatibles.
-- Evitar descargar repetidamente el modelo y las dependencias. El `Makefile`
-  define cachés separadas para Hugging Face y uv.
+- Integrating a local LLM without leaking its details throughout the project.
+  This was addressed with the `LLMModel` adapter and `LLMProtocol`.
+- Ensuring the generated name belongs to the available function set. This was
+  addressed by comparing the generated tokenized prefix with every permitted
+  name on each iteration.
+- Handling malformed input. Pydantic models and specific exceptions were added
+  for missing files, insufficient permissions, invalid JSON, and incompatible
+  structures.
+- Avoiding repeated downloads of the model and dependencies. The `Makefile`
+  defines separate caches for Hugging Face and uv.
 
-## Estrategia de pruebas
+## Testing strategy
 
-La validación del proyecto combina comprobaciones estáticas y pruebas
-manuales de integración:
+Project validation combines static checks and manual integration testing:
 
-- `make lint` ejecuta `flake8` y `mypy` con reglas de tipos estrictas para
-  funciones sin anotaciones, retornos `Any` e ignores sin uso.
-- `make lint-strict` ejecuta la variante estricta de mypy.
-- `python -m compileall src` comprueba que todos los módulos compilan.
-- Se prueban archivos de entrada válidos y casos límite: archivo ausente,
-  permisos insuficientes, JSON inválido, lista vacía, prompts vacíos y
-  parámetros sin `type`.
-- La salida se revisa como JSON y se compara con las definiciones disponibles:
-  el nombre debe existir y los parámetros generados deben corresponder a la
-  función elegida.
+- `make lint` runs `flake8` and `mypy` with strict type rules for functions
+  without annotations, `Any` returns, and unused ignores.
+- `make lint-strict` runs the strict mypy variant.
+- `python -m compileall src` checks that all modules compile.
+- Valid input files and edge cases are tested: missing files, insufficient
+  permissions, invalid JSON, empty lists, empty prompts, and parameters
+  without a `type`.
+- Output is reviewed as JSON and compared with the available definitions: the
+  name must exist and the generated parameters must match the selected
+  function.
 
-## Ejemplos de uso
+## Usage examples
 
-Ejecutar con rutas explícitas:
+Run with explicit paths:
 
 ```bash
 uv run python -m src \
@@ -227,33 +220,32 @@ uv run python -m src \
   --output output/function_calling_results.json
 ```
 
-Ejecutar el depurador:
+Run the debugger:
 
 ```bash
 make debug
 ```
 
-Comprobar estilo y tipos:
+Check style and types:
 
 ```bash
 make lint
 ```
 
-## Recursos
+## Resources
 
-- [Documentación de Python sobre argparse](https://docs.python.org/3/library/argparse.html).
-- [Documentación de Pydantic](https://docs.pydantic.dev/).
-- [Documentación de PyTorch](https://pytorch.org/docs/stable/index.html).
-- [Documentación de Hugging Face Transformers](https://huggingface.co/docs/transformers/).
-- [Documentación del modelo Qwen3](https://huggingface.co/Qwen/Qwen3-0.6B).
-- [Function Calling and Other API Updates](https://openai.com/index/function-calling-and-other-api-updates/), introducción al uso de modelos para seleccionar herramientas estructuradas.
+- [Python argparse documentation](https://docs.python.org/3/library/argparse.html).
+- [Pydantic documentation](https://docs.pydantic.dev/).
+- [PyTorch documentation](https://pytorch.org/docs/stable/index.html).
+- [Hugging Face Transformers documentation](https://huggingface.co/docs/transformers/).
+- [Qwen3 model documentation](https://huggingface.co/Qwen/Qwen3-0.6B).
+- [Function Calling and Other API Updates](https://openai.com/index/function-calling-and-other-api-updates/), an introduction to using models to select structured tools.
 
-### Uso de IA
+### Use of AI
 
-Se utilizó una herramienta de IA conversacional como apoyo durante el
-desarrollo para explicar conceptos de Python, Pydantic, `Protocol`,
-`argparse`, validación de datos y organización del código. También se usó para
-proponer refactorizaciones, mensajes de error y el primer borrador de esta
-documentación. Las decisiones finales de estructura, las rutas, los comandos,
-el código presente y las comprobaciones se revisaron frente al contenido real
-del repositorio.
+A conversational AI tool was used as support during development to explain
+Python, Pydantic, `Protocol`, `argparse`, data validation, and code
+organization concepts. It was also used to suggest refactorings, error
+messages, and the first draft of this documentation. The final structural
+decisions, paths, commands, current code, and checks were reviewed against the
+actual repository contents.
