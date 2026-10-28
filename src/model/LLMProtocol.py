@@ -11,3 +11,6 @@ class LLMProtocol(Protocol):
 
     def get_logits_from_input_ids(self, input_ids: list[int]) -> list[float]:
         ...
+
+    def get_token_text(self, token_id: int) -> str:
+        ...

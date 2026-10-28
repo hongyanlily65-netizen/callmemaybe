@@ -19,10 +19,10 @@ the selected function name, and the generated parameters:
 ```json
 {
   "prompt": "What is the sum of 2 and 3?",
-  "name": "fn_add_numbers",
-  "parameters": {
-    "a": "2",
-    "b": "3"
+  "fn_name": "fn_add_numbers",
+  "args": {
+    "a": 2,
+    "b": 3
   }
 }
 ```
@@ -144,10 +144,15 @@ Generation is divided into two phases.
 2. Parameter generation: for each parameter of the selected function, a
    prompt containing the parameter names is created. At each step, the logits
    are sorted and the highest-scoring token whose text is allowed by a
-   type-dependent mask is accepted. Strings allow letters, numbers, spaces,
-   underscores, and quotation marks; numbers allow digits, a minus sign, a
-   decimal point, and quotation marks. Generation stops when a quotation mark
-   is produced or when the 64-character limit is reached.
+   type-dependent mask is accepted. Generation stops when a quotation mark is
+   produced or when the 64-character limit is reached. The generated text is
+   then converted to the declared JSON type, including strings, integers,
+   numbers, and booleans.
+
+The model adapter obtains the public vocabulary path through
+`get_path_to_vocab_file()`, loads the token-to-ID JSON once, and reverses it
+into an ID-to-token mapping. Parameter constraints use this cached mapping
+instead of decoding every candidate token separately.
 
 This constraint reduces the model's search space: it cannot invent a function
 name outside the definitions, and parameter values remain within a character

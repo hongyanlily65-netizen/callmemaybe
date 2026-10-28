@@ -32,15 +32,15 @@ class PromptProcessor(BaseModel):
     def process(self) -> list[dict[str, Any]]:
         output = []
         for prompt in self.prompts:
-            prompt_output: dict[str, Any] = {}
-            prompt_output["prompt"] = prompt
-
             fn_name = self.get_function_name(prompt)
-            prompt_output["name"] = fn_name
-
             params = self.get_parameters(fn_name, prompt)
-            prompt_output["parameters"] = params
-            output.append(prompt_output)
+            output.append(
+                {
+                    "prompt": prompt,
+                    "fn_name": fn_name,
+                    "args": params,
+                }
+            )
         return output
 
     def get_function_name(self, prompt: str) -> str:
@@ -99,11 +99,11 @@ class PromptProcessor(BaseModel):
         self,
         function_name: str,
         prompt: str,
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         function = self._get_function_definition(function_name)
         prompt_message = self._build_parameter_prompt(function, prompt)
         prompt_tokens: list[int] = self._llm.encode(prompt_message).tolist()[0]
-        result: dict[str, str] = {}
+        result: dict[str, Any] = {}
 
         for index, (parameter_name, definition) in enumerate(
             function.parameters.items()
@@ -112,8 +112,12 @@ class PromptProcessor(BaseModel):
             prompt_tokens += self._llm.encode(
                 f'{prefix}{json.dumps(parameter_name)}:"'
             ).tolist()[0]
-            result[parameter_name] = self._generate_parameter_value(
+            raw_value = self._generate_parameter_value(
                 prompt_tokens,
+                definition["type"],
+            )
+            result[parameter_name] = convert_parameter_value(
+                raw_value,
                 definition["type"],
             )
             prompt_tokens += self._llm.encode('"').tolist()[0]
@@ -175,9 +179,8 @@ class PromptProcessor(BaseModel):
             "function. "
             "Do not execute the function and do not return its result.\n"
             "Return only one compact JSON object. Use this exact key order: "
-            f"{key_order}. All values must be JSON strings; numeric strings "
-            "must "
-            "match their declared numeric type. JSON="
+            f"{key_order}. Each value must match its declared JSON type. "
+            "JSON="
         )
 
 
@@ -214,7 +217,11 @@ def get_constrained_parameter_value_token(
         reverse=True,
     )
     for token_id in sorted_ids:
-        token_text = llm.decode([token_id])
+        try:
+            token_text = llm.get_token_text(token_id)
+        except ValueError:
+            # Some model-specific special IDs may not be in vocab.json.
+            continue
         if token_text == '"' and parameter_value_matches_type(
             value,
             parameter_type,
@@ -240,6 +247,8 @@ def parameter_value_can_continue(value: str, parameter_type: str) -> bool:
         return bool(re.fullmatch(r"-?[0-9]*", value))
     if parameter_type == "number":
         return bool(re.fullmatch(r"[-+0-9.eE]*", value))
+    if parameter_type == "boolean":
+        return "true".startswith(value) or "false".startswith(value)
     return False
 
 
@@ -255,4 +264,26 @@ def parameter_value_matches_type(value: str, parameter_type: str) -> bool:
                 value,
             )
         )
+    if parameter_type == "boolean":
+        return value in {"true", "false"}
     return False
+
+
+def convert_parameter_value(value: str, parameter_type: str) -> Any:
+    """Convert generated text to the JSON type declared by the schema."""
+    if not parameter_value_matches_type(value, parameter_type):
+        raise ParameterGenerationError(
+            f"Generated value {value!r} does not match type "
+            f"{parameter_type!r}."
+        )
+    if parameter_type == "string":
+        return value
+    if parameter_type == "integer":
+        return int(value)
+    if parameter_type == "number":
+        return json.loads(value)
+    if parameter_type == "boolean":
+        return value == "true"
+    raise ParameterGenerationError(
+        f"Unsupported parameter type: {parameter_type!r}."
+    )
