@@ -281,7 +281,7 @@ def convert_parameter_value(value: str, parameter_type: str) -> Any:
     if parameter_type == "integer":
         return int(value)
     if parameter_type == "number":
-        return json.loads(value)
+        return float(value)
     if parameter_type == "boolean":
         return value == "true"
     raise ParameterGenerationError(

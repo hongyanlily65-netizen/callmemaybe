@@ -21,8 +21,8 @@ the selected function name, and the generated parameters:
   "prompt": "What is the sum of 2 and 3?",
   "fn_name": "fn_add_numbers",
   "args": {
-    "a": 2,
-    "b": 3
+    "a": 2.0,
+    "b": 3.0
   }
 }
 ```
@@ -66,8 +66,8 @@ repository is:
 
 ```bash
 uv run python -m src \
-  --input input/function_calling_tests.json \
-  --function_definitions input/functions_definition.json \
+  --input data/input/function_calling_tests.json \
+  --function_definitions data/input/functions_definition.json \
   --output output/function_calling_results.json
 ```
 
@@ -95,10 +95,8 @@ make lint-strict
 `make debug` starts the program with the standard `pdb` debugger. `make clean`
 removes Python, mypy, and pytest caches.
 
-> Note: `make run` uses the default paths configured in
-> `src/parsing/arguments.py` (`data/input/...`). In this copy of the
-> repository, the examples are in `input/...`; therefore, use the command with
-> explicit paths shown above, or create the expected `data/input/` structure.
+The included examples use the same `data/input/` paths configured as the
+command-line defaults, so `make run` works without explicit path arguments.
 
 ## Input format
 
@@ -147,7 +145,8 @@ Generation is divided into two phases.
    type-dependent mask is accepted. Generation stops when a quotation mark is
    produced or when the 64-character limit is reached. The generated text is
    then converted to the declared JSON type, including strings, integers,
-   numbers, and booleans.
+   numbers, and booleans. Values declared as `number` are always serialized as
+   floating-point values, while `integer` values remain integers.
 
 The model adapter obtains the public vocabulary path through
 `get_path_to_vocab_file()`, loads the token-to-ID JSON once, and reverses it
@@ -207,9 +206,6 @@ Project validation combines static checks and manual integration testing:
   without annotations, `Any` returns, and unused ignores.
 - `make lint-strict` runs the strict mypy variant.
 - `python -m compileall src` checks that all modules compile.
-- Valid input files and edge cases are tested: missing files, insufficient
-  permissions, invalid JSON, empty lists, empty prompts, and parameters
-  without a `type`.
 - Output is reviewed as JSON and compared with the available definitions: the
   name must exist and the generated parameters must match the selected
   function.
@@ -220,8 +216,8 @@ Run with explicit paths:
 
 ```bash
 uv run python -m src \
-  --input input/function_calling_tests.json \
-  --function_definitions input/functions_definition.json \
+  --input data/input/function_calling_tests.json \
+  --function_definitions data/input/functions_definition.json \
   --output output/function_calling_results.json
 ```
 
