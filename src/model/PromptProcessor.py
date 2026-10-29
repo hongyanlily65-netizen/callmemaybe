@@ -32,12 +32,12 @@ class PromptProcessor(BaseModel):
     def process(self) -> list[dict[str, Any]]:
         output = []
         for prompt in self.prompts:
-            fn_name = self.get_function_name(prompt)
-            params = self.get_parameters(fn_name, prompt)
+            function_name = self.get_function_name(prompt)
+            params = self.get_parameters(function_name, prompt)
             output.append(
                 {
                     "prompt": prompt,
-                    "fn_name": fn_name,
+                    "name": function_name,
                     "args": params,
                 }
             )

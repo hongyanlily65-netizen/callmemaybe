@@ -19,7 +19,7 @@ the selected function name, and the generated parameters:
 ```json
 {
   "prompt": "What is the sum of 2 and 3?",
-  "fn_name": "fn_add_numbers",
+  "name": "fn_add_numbers",
   "args": {
     "a": 2.0,
     "b": 3.0
@@ -67,7 +67,7 @@ repository is:
 ```bash
 uv run python -m src \
   --input data/input/function_calling_tests.json \
-  --function_definitions data/input/functions_definition.json \
+  --functions_definition data/input/functions_definition.json \
   --output output/function_calling_results.json
 ```
 
@@ -78,7 +78,7 @@ The available arguments are:
 
 ```text
 --input <file>                    JSON file containing the prompts.
---function_definitions <file>     JSON file containing the available functions.
+--functions_definition <file>     JSON file containing the available functions.
 --output <file>                   Path to the output JSON file.
 ```
 
@@ -217,7 +217,7 @@ Run with explicit paths:
 ```bash
 uv run python -m src \
   --input data/input/function_calling_tests.json \
-  --function_definitions data/input/functions_definition.json \
+  --functions_definition data/input/functions_definition.json \
   --output output/function_calling_results.json
 ```
 

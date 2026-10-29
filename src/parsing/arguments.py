@@ -32,7 +32,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--function_definitions",
+        "--functions_definition",
+        dest="function_definitions",
         default=DEFAULT_FUNCTION_DEFINITIONS_PATH,
         help=(
             "Path to the function definitions JSON file. "
